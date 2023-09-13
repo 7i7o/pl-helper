@@ -1,0 +1,36 @@
+#!/bin/bash
+  
+>&2 echo Remote helper started with command line \'$@\'
+>&2 echo Remote url is passed in second argument: $2
+  
+repo_path=$HOME/coding/grh/remotes/$( echo $2 | sed 's/.*:\/\///' )
+  
+>&2 echo Using remote repository path $repo_path. Running the communication loop
+while :
+do
+    read line
+  
+    if [ -z "$line" ]
+    then
+        >&2 echo Input command line is empty. Communication done
+        exit 0
+    fi
+  
+    command=$(echo $line | cut -d" " -f1)
+    arg=$(echo $line | cut -d" " -f2)
+  
+    >&2 echo Handling input command $command with argument $arg
+  
+    case "$command" in
+        ("capabilities")
+            echo connect
+            echo
+        ;;
+        ("connect")
+            echo
+            >&2 echo Running helper utility $arg on repository $repo_path
+            $arg $repo_path
+        ;;
+    esac
+  
+done
