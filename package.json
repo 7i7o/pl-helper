@@ -5,9 +5,11 @@
     "main": "dist/index.js",
     "module": "dist/index.mjs",
     "types": "dist/index.d.ts",
+    "bin": "dist/index.mjs",
     "scripts": {
         "build": "tsup src/index.ts --format cjs,esm --dts",
-        "lint": "tsc"
+        "lint": "tsc",
+        "x": "node dist/index.mjs"
     },
     "keywords": [
         "protocol land",
