@@ -19,7 +19,15 @@
     "license": "ISC",
     "devDependencies": {
         "@changesets/cli": "^2.26.2",
+        "@types/debug": "^4.1.8",
         "tsup": "^7.2.0",
         "typescript": "^5.2.2"
+    },
+    "dependencies": {
+        "debug": "^4.3.4",
+        "rxjs": "^7.8.1",
+        "rxjs-async-map": "0.3.0-preview.0",
+        "rxjs-stream": "^5.0.0",
+        "superpathjoin": "^2.0.1"
     }
 }
