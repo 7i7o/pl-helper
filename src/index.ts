@@ -34,7 +34,7 @@ async function processCommands(repoPath: string) {
         }
 
         // process command
-        const [command, arg] = line.split(' ');
+        const [command, arg = ''] = line.split(' ');
         print(`Handling input command '${command}' with argument '${arg}'`);
 
         switch (command) {
@@ -58,17 +58,22 @@ async function processCommands(repoPath: string) {
 
 function run(command: string, arg: string) {
     print(`Trying to run '${command}' with args: '${arg}'`);
-    exec(`${command} ${arg}`, (error, stdout, stderr) => {
-        if (error) {
-            print(`ERROR: ${error}`);
-            return;
+    exec(
+        `${command} ${arg}`,
+        // { encoding: 'buffer' },
+        (error, stdout, stderr) => {
+            if (error) {
+                print(`ERROR: ${error}`);
+                return;
+            }
+            if (stderr) {
+                print(`STDERR: ${stderr}`);
+                return;
+            }
+            print(stdout);
+            console.log(stdout);
         }
-        if (stderr) {
-            print(`STDERR: ${stderr}`);
-            return;
-        }
-        console.log(stdout);
-    });
+    );
 
     // const c = new Deno.Command(command, {
     //     args: [arg],
