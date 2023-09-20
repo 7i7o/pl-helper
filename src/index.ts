@@ -1,5 +1,7 @@
+#!/usr/bin/env node
+
 import path from 'path';
-import { spawn } from 'child_process';
+import { execa } from 'execa';
 
 const TMP_FOLDER = path.join(process.env.HOME as string, 'coding/grh/remotes');
 
@@ -24,7 +26,8 @@ async function main() {
 
 async function processCommands(repoPath: string) {
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (data: string) => {
+    process.stdin.on('data', async (data: string) => {
+        print(` DEBUG (line): ${data}`);
         const line = data.replace(/\n/, '');
 
         // finish if line is empty
@@ -48,7 +51,7 @@ async function processCommands(repoPath: string) {
                     `Running helper utility ${arg} on repository ${repoPath}`
                 );
                 // run command: 'arg repoPath'
-                run(arg as string, repoPath);
+                await run(arg as string, repoPath);
                 break;
             default:
                 print(`Unrecognized command: '${command}'`);
@@ -56,18 +59,20 @@ async function processCommands(repoPath: string) {
     });
 }
 
-function run(command: string, arg: string) {
+async function run(command: string, arg: string) {
     print(`Trying to run '${command}' with args: '${arg}'`);
 
-    const child = spawn(command, [arg], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    await execa(command, [arg]).pipeStdout(process.stdout);
 
-    process.stdin.pipe(child.stdin);
-    child.stdout.pipe(process.stdout);
+    // const child = spawn(command, [arg], {
+    //     stdio: ['pipe', 'pipe', 'pipe'],
+    // });
 
-    child.on('error', print);
-    child.on('exit', (code) => code);
+    // process.stdin.pipe(child.stdin);
+    // child.stdout.pipe(process.stdout);
+
+    // child.on('error', print);
+    // child.on('exit', (code) => code);
 }
 
 main();

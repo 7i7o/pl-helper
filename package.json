@@ -5,6 +5,7 @@
     "main": "dist/index.js",
     "module": "dist/index.mjs",
     "types": "dist/index.d.ts",
+    "type": "module",
     "bin": "dist/index.mjs",
     "scripts": {
         "build": "tsup src/index.ts --format cjs,esm --dts",
@@ -28,6 +29,7 @@
     },
     "dependencies": {
         "debug": "^4.3.4",
+        "execa": "^8.0.1",
         "rxjs": "^7.8.1",
         "rxjs-async-map": "0.3.0-preview.0",
         "rxjs-stream": "^5.0.0",
