@@ -8,6 +8,7 @@
     "bin": "dist/index.mjs",
     "scripts": {
         "build": "tsup src/index.ts --format cjs,esm --dts",
+        "package": "pkg --out-path ./bin -C Gzip dist/index.js",
         "lint": "tsc",
         "x": "node dist/index.mjs"
     },
