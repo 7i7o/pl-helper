@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { spawn } from 'child_process';
 import GitRemoteHelper, { ApiConnect, logError } from './GitRemoteHelper';
 
 // const handlePush: ApiBoth['handlePush'] = async ({ refs }) => {
@@ -25,10 +25,20 @@ import GitRemoteHelper, { ApiConnect, logError } from './GitRemoteHelper';
 const api: ApiConnect = {
     handleConnect: async ({ remoteUrl, gitCommand }) => {
         // Implement connect logic using Git CLI command
-        const connectCommand = `${gitCommand} ${remoteUrl}`;
-        logError(`Executing '${connectCommand}'`);
-        const result = execSync(connectCommand).toString();
-        return result;
+        logError(`Executing '${gitCommand} ${remoteUrl}'`);
+        let ret = 0;
+
+        const child = spawn(gitCommand, [remoteUrl], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+        });
+
+        process.stdin.pipe(child.stdin);
+        child.stdout.pipe(process.stdout);
+
+        child.on('error', print);
+        child.on('exit', (code) => (ret = code ? code : 0));
+
+        return `${ret}`;
     },
 };
 
