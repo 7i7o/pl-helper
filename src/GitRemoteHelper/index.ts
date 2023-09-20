@@ -12,26 +12,21 @@ const TMP_FOLDER = path.join(process.env.HOME as string, 'coding/grh/remotes');
 export enum GitCommands {
     capabilities = 'capabilities',
     option = 'option',
-    list = 'list',
-    push = 'push',
-    fetch = 'fetch',
+    connect = 'connect',
 }
 export const ONE_LINE_COMMANDS = [
     GitCommands.capabilities,
     GitCommands.option,
-    GitCommands.list,
+    // GitCommands.connect,
 ];
 
-const logError = (...args: any) => {
+export const logError = (...args: any) => {
     console.error(...args);
 };
-const log = debug('git-remote-helper');
+export const log = debug('git-remote-helper');
 const logIo = log.extend('io');
 const logInput = logIo.extend('input');
 const logOutput = logIo.extend('output');
-
-export type PushRef = { src: string; dst: string; force: boolean };
-export type FetchRef = { ref: string; oid: string };
 
 export type CommandCapabilities = {
     command: GitCommands.capabilities;
@@ -41,24 +36,11 @@ export type CommandOption = {
     key: string;
     value: string;
 };
-export type CommandList = {
-    command: GitCommands.list;
-    forPush: boolean;
+export type CommandConnect = {
+    command: GitCommands.connect;
+    gitCommand?: string;
 };
-export type CommandPush = {
-    command: GitCommands.push;
-    refs: PushRef[];
-};
-export type CommandFetch = {
-    command: GitCommands.fetch;
-    refs: FetchRef[];
-};
-export type Command =
-    | CommandCapabilities
-    | CommandOption
-    | CommandList
-    | CommandPush
-    | CommandFetch;
+export type Command = CommandCapabilities | CommandOption | CommandConnect;
 
 /**
  * These are parameters which are passed to every api callback
@@ -78,13 +60,8 @@ export type ApiBaseParams = {
     remoteUrl: string;
 };
 
-export type HandlePush = (
-    params: ApiBaseParams & { refs: PushRef[] }
-) => Promise<string>;
-export type HandleFetch = (
-    params: ApiBaseParams & {
-        refs: FetchRef[];
-    }
+export type HandleConnect = (
+    params: ApiBaseParams & { gitCommand: string }
 ) => Promise<string>;
 
 export type ApiBase = {
@@ -95,27 +72,12 @@ export type ApiBase = {
      * finished before any of the other API methods are invoked.
      */
     init?: (params: ApiBaseParams) => Promise<void>;
-    list: (
-        params: ApiBaseParams & {
-            forPush: boolean;
-        }
-    ) => Promise<string>;
-    handlePush?: HandlePush;
-    handleFetch?: HandleFetch;
+    handleConnect?: HandleConnect;
 };
-export type ApiPush = ApiBase & {
-    handlePush: HandlePush;
-    handleFetch?: undefined;
+export type ApiConnect = ApiBase & {
+    handleConnect: HandleConnect;
 };
-export type ApiFetch = ApiBase & {
-    handlePush?: undefined;
-    handleFetch: HandleFetch;
-};
-export type ApiBoth = ApiBase & {
-    handlePush: HandlePush;
-    handleFetch: HandleFetch;
-};
-export type Api = ApiPush | ApiFetch | ApiBoth;
+export type Api = ApiConnect;
 
 const GitRemoteHelper = async ({
     env,
@@ -138,7 +100,9 @@ const GitRemoteHelper = async ({
     };
     const gitdir = join(process.cwd(), getDir());
 
-    const [, , remoteName, remoteUrlGit] = process.argv;
+    const [first, second, remoteName, remoteUrlGit] = process.argv;
+
+    logError(`args: '${first}', '${second}'`);
 
     if (typeof remoteName !== 'string')
         throw new Error('Missing Remote Name argument #tVJpoU');
@@ -148,14 +112,12 @@ const GitRemoteHelper = async ({
     const remoteUrl = path.join(TMP_FOLDER, remoteUrlGit);
 
     const capabilitiesResponse =
-        [GitCommands.option, GitCommands.push, GitCommands.fetch]
+        [GitCommands.option, GitCommands.connect]
             .filter((option) => {
                 if (option === GitCommands.option) {
                     return true;
-                } else if (option === GitCommands.push) {
-                    return typeof api.handlePush === 'function';
-                } else if (option === GitCommands.fetch) {
-                    return typeof api.handleFetch === 'function';
+                } else if (option === GitCommands.connect) {
+                    return typeof api.handleConnect === 'function';
                 } else {
                     throw new Error('Unknown option #GDhBnb');
                 }
@@ -256,37 +218,14 @@ const GitRemoteHelper = async ({
 
             if (command.startsWith('capabilities')) {
                 return { command: GitCommands.capabilities };
-            } else if (command.startsWith(GitCommands.list)) {
-                return {
-                    command: GitCommands.list,
-                    forPush: command.startsWith('list for-push'),
-                };
             } else if (command.startsWith(GitCommands.option)) {
                 const [, key = '', value = ''] = command.split(' ');
                 return { command: GitCommands.option, key, value };
-            } else if (command.startsWith(GitCommands.fetch)) {
-                // Lines for fetch commands look like:
-                // fetch sha1 branchName
-                const refs = lines.map((line) => {
-                    const [, oid = '', ref = ''] = line.split(' ');
-                    return { oid, ref };
-                });
-
-                return { command: GitCommands.fetch, refs };
-            } else if (command.startsWith(GitCommands.push)) {
-                // Lines for push commands look like this (the + means force push):
-                // push refs/heads/master:refs/heads/master
-                // push +refs/heads/master:refs/heads/master
-                const refs = lines.map((line) => {
-                    // Strip the leading `push ` from the line
-                    const refsAndForce = line.slice(5);
-                    const force = refsAndForce[0] === '+';
-                    const refs = force ? refsAndForce.slice(1) : refsAndForce;
-                    const [src = '', dst = ''] = refs.split(':');
-                    return { src, dst, force };
-                });
-
-                return { command: GitCommands.push, refs };
+            } else if (command.startsWith(GitCommands.connect)) {
+                return {
+                    command: GitCommands.connect,
+                    gitCommand: command.split(' ')[1],
+                };
             }
 
             throw new Error('Unknown command #Py9QTP');
@@ -305,51 +244,24 @@ const GitRemoteHelper = async ({
                     JSON.stringify({ command })
                 );
                 return 'unsupported\n';
-            } else if (command.command === GitCommands.list) {
-                const { forPush } = command;
-                try {
-                    return api.list({ gitdir, remoteName, remoteUrl, forPush });
-                } catch (error) {
-                    console.error('api.list threw #93ROre');
-                    // console.error(error);
-                    throw error;
-                }
-            } else if (command.command === GitCommands.push) {
-                log('Calling api.handlePush() #qpi4Ah');
-                const { refs } = command;
-                if (typeof api.handlePush === 'undefined') {
-                    throw new Error('api.handlePush undefined #9eNmmz');
+            } else if (command.command === GitCommands.connect) {
+                if (typeof api.handleConnect === 'undefined') {
+                    throw new Error('api.handleConnect undefined #9eNmmz');
                 }
                 try {
                     // NOTE: Without the await here, the promise is returned immediately,
                     // and the catch block never fires.
-                    return await api.handlePush({
-                        refs,
+                    const { gitCommand } = command;
+                    if (!gitCommand)
+                        throw new Error('gitCommand undefined #9eNmmz');
+                    return await api.handleConnect({
                         gitdir,
                         remoteName,
                         remoteUrl,
+                        gitCommand,
                     });
                 } catch (error) {
-                    console.error('api.handlePush threw #9Ei4c4');
-                    // console.error(error);
-                    throw error;
-                }
-            } else if (command.command === GitCommands.fetch) {
-                const { refs } = command;
-                if (typeof api.handleFetch === 'undefined') {
-                    throw new Error('api.handleFetch undefined #9eNmmz');
-                }
-                try {
-                    // NOTE: Without the await here, the promise is returned immediately,
-                    // and the catch block never fires.
-                    return await api.handleFetch({
-                        refs,
-                        gitdir,
-                        remoteName,
-                        remoteUrl,
-                    });
-                } catch (error) {
-                    console.error('api.handleFetch threw #5jxsQQ');
+                    console.error('api.handleConnect threw #5jxsQQ');
                     // console.error(error);
                     throw error;
                 }
