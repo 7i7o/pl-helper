@@ -9,6 +9,8 @@
     "scripts": {
         "build": "tsup src/index.ts --format cjs,esm --dts",
         "package": "pkg --out-path ./bin -C Gzip dist/index.js",
+        "build:grh": "tsup src/index.GRH.ts --format cjs,esm --dts",
+        "package:grh": "pkg --out-path ./bin -C Gzip dist/index.GTH.js",
         "lint": "tsc",
         "x": "node dist/index.mjs"
     },
